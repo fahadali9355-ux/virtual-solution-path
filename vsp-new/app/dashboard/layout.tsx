@@ -1,100 +1,206 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, BookOpen, Award, Settings, LogOut, Menu, User } from 'lucide-react';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation"; // 👈 useRouter add kia
+import { 
+  LayoutGrid, BookOpen, User, Settings, LogOut, 
+  Menu, Bell, CheckCircle, AlertCircle
+} from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
+  const router = useRouter(); // 👈 Redirect k liye
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   
-  // State for User Data
-  const [user, setUser] = useState({ name: "Student Name", email: "student@vsp.com" });
+  const [userName, setUserName] = useState("Student");
+  const [userEmail, setUserEmail] = useState("student@example.com");
+  const [userImage, setUserImage] = useState<string | null>(null);
 
-  // Load user from LocalStorage when page loads
+  // 👇 FUNCTION: Data Load karne k liye
+  const loadUserData = () => {
+    const storedName = localStorage.getItem("userName");
+    const storedEmail = localStorage.getItem("userEmail");
+    const storedImage = localStorage.getItem("profileImage");
+
+    if (storedName) setUserName(storedName);
+    if (storedEmail) setUserEmail(storedEmail);
+    if (storedImage) setUserImage(storedImage);
+  };
+
   useEffect(() => {
-    const storedUser = localStorage.getItem("vsp_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    // 1. Check Login (Security)
+    const email = localStorage.getItem("userEmail");
+    if (!email) {
+       router.push("/login");
+       return;
     }
-  }, []);
 
+    // 2. Load Data
+    loadUserData();
+
+    // 3. Event Listener
+    window.addEventListener("storage", loadUserData);
+    return () => window.removeEventListener("storage", loadUserData);
+  }, [router]);
+
+  // 👇 LOGOUT FUNCTION
   const handleLogout = () => {
-    // Clear data and redirect
-    localStorage.removeItem("vsp_user");
-    router.push("/login");
+    localStorage.clear(); // Sara data saaf
+    router.push("/login"); // Login page par bhejo
   };
 
   const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-    { icon: BookOpen, label: "My Courses", href: "/dashboard/courses" },
-    { icon: Award, label: "Certificates", href: "/dashboard/certificates" },
-    { icon: User, label: "Profile", href: "/dashboard/profile" },
-    { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+    { name: "Overview", icon: LayoutGrid, link: "/dashboard" },
+    { name: "My Courses", icon: BookOpen, link: "/dashboard/courses" },
+    { name: "Profile", icon: User, link: "/dashboard/profile" },
+    { name: "Settings", icon: Settings, link: "/dashboard/settings" },
+  ];
+
+  const notifications = [
+    { id: 1, text: "Web Development Class starts in 30 mins.", type: "alert", time: "Now" },
+    { id: 2, text: "Assignment 'HTML Basics' graded: 90/100", type: "success", time: "2h ago" },
+    { id: 3, text: "New course 'Freelancing' is now available.", type: "info", time: "1d ago" },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans">
+    <div className="flex h-screen bg-[#F1F5F9] overflow-hidden font-sans">
       
-      {/* Mobile Overlay */}
-      {isSidebarOpen && ( <div className="fixed inset-0 bg-slate-900/50 z-40 md:hidden" onClick={() => setIsSidebarOpen(false)} /> )}
+      {/* 👇 1. MOBILE OVERLAY (Ye naya hai) 
+          Jab menu khula hoga, ye peeche black color layega.
+          Is par click karne se menu band ho jayega. 
+      */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
 
-      {/* SIDEBAR */}
-      <aside className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-[#082F49] text-white transition-transform duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      {/* --- SIDEBAR --- */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-72 
+        bg-[#082F49] text-white transition-transform duration-300 ease-in-out flex flex-col shadow-xl
+        ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        lg:relative lg:translate-x-0 lg:w-64
+      `}>
         
-        {/* Logo */}
-        <div className="h-20 flex items-center gap-3 px-6 border-b border-white/10">
-          <img src="/images/img1.png" alt="VSP Logo" className="w-8 h-8 object-contain brightness-0 invert" />
-          <span className="font-bold text-xl tracking-tight">VSP.</span>
+        {/* Brand Logo */}
+        <div className="h-20 flex items-center px-6 border-b border-white/10 bg-[#0C4A6E]">
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10">
+                <img src="/images/img1.png" alt="VSP Logo" className="w-8 h-8 object-contain" />
+             </div>
+             <span className="text-xl font-bold tracking-wide text-white">VSP.</span>
+           </div>
         </div>
 
-        {/* Menu */}
-        <nav className="flex-1 py-6 px-3 space-y-1">
+        {/* Navigation */}
+        <nav className="flex-1 px-4 mt-6 space-y-2 overflow-y-auto">
           {menuItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.link;
             return (
-              <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${isActive ? 'bg-[#0284C7] text-white shadow-md' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+              <Link 
+                key={item.name} 
+                href={item.link}
+                // 👇 2. AUTO CLOSE ON CLICK
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 text-sm font-medium
+                  ${isActive 
+                    ? "bg-blue-500 text-white shadow-lg shadow-blue-900/50" 
+                    : "text-blue-100 hover:bg-white/10 hover:text-white"
+                  }
+                `}
+              >
                 <item.icon size={20} />
-                {item.label}
+                {item.name}
               </Link>
-            );
+            )
           })}
         </nav>
 
-        {/* DYNAMIC USER PROFILE SECTION */}
-        <div className="p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-4 px-2">
-            {/* Initial Letter Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 border-2 border-white/20 flex items-center justify-center font-bold text-white uppercase">
-              {user.name.charAt(0)}
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-white truncate w-32">{user.name}</p>
-              <p className="text-xs text-slate-400 truncate w-32">{user.email}</p>
-            </div>
+        {/* USER PROFILE (Sidebar Footer) */}
+        <div className="p-4 mb-2">
+          <div className="bg-[#0C4A6E] rounded-xl p-3 flex items-center gap-3 border border-white/5 shadow-inner">
+              <div className="w-10 h-10 rounded-full bg-blue-500 border-2 border-[#082F49] shrink-0 overflow-hidden flex items-center justify-center">
+                {userImage ? (
+                    <img src={userImage} alt="User" className="w-full h-full object-cover" />
+                ) : (
+                    <span className="text-white font-bold text-sm">{userName.charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="flex-1 overflow-hidden">
+                 <p className="text-sm font-bold text-white truncate">{userName}</p>
+                 <p className="text-xs text-blue-200 truncate" title={userEmail}>{userEmail}</p>
+              </div>
+              
+              {/* Logout Button Update */}
+              <button onClick={handleLogout} title="Logout">
+                 <LogOut size={18} className="text-blue-300 hover:text-red-400 cursor-pointer transition-colors" />
+              </button>
           </div>
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg text-sm font-medium transition-colors">
-            <LogOut size={18} />
-            Sign Out
-          </button>
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:hidden">
-          <div className="flex items-center gap-2 font-bold text-[#082F49]">
-            <img src="/images/img1.png" alt="Logo" className="w-8 h-8" />
-            <span>VSP</span>
-          </div>
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600"><Menu size={24} /></button>
+      {/* --- MAIN CONTENT --- */}
+      <div className="flex-1 flex flex-col h-full relative overflow-hidden">
+        
+        {/* Header */}
+        <header className="h-16 px-4 md:px-8 flex items-center justify-between bg-white border-b border-slate-200 sticky top-0 z-30">
+           <div className="flex items-center gap-4">
+             <button className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg" onClick={() => setSidebarOpen(true)}>
+                <Menu />
+             </button>
+             <h2 className="text-lg font-bold text-slate-800 hidden md:block">Dashboard</h2>
+           </div>
+
+           {/* Notifications Area */}
+           <div className="flex items-center gap-4 relative">
+              <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors focus:outline-none"
+              >
+                 <Bell size={20} />
+                 <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+
+              {/* Notification Dropdown */}
+              {isNotifOpen && (
+                <>
+                {/* Backdrop for Notif */}
+                <div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)}></div>
+                <div className="absolute top-12 right-0 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 className="font-bold text-slate-800">Notifications</h3>
+                    <span className="text-xs text-blue-600 font-medium cursor-pointer">Mark all read</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.map((notif) => (
+                      <div key={notif.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer flex gap-3">
+                        <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${notif.type === 'alert' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
+                        <div>
+                          <p className="text-sm text-slate-700 font-medium leading-snug">{notif.text}</p>
+                          <p className="text-xs text-slate-400 mt-1">{notif.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-3 text-center border-t border-slate-100">
+                    <Link href="/dashboard/settings" className="text-xs font-bold text-blue-600 hover:underline">
+                      View Settings
+                    </Link>
+                  </div>
+                </div>
+                </>
+              )}
+           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
-          {children}
-        </div>
-      </main>
+
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#F1F5F9]">
+           {children}
+        </main>
+      </div>
     </div>
   );
 }
